@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8" />
+  <title>صفحة البحث</title>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css" />
+  <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+
+</head>
+<body>
+  <img id="logo" src="/static/logo.png" alt="شعار بصير">
+  <h1>🔍 مرحبًا بك في صفحة البحث</h1>
+  <p id="heardText">🎧 بانتظار الصوت...</p>
+  <p id="searchResult"></p>
+
+  <audio id="audioPlayer" style="display: none;" controls></audio>
+
+  <script>
+    let isListening = false;
+
+    function speak(text, callback = null) {
+      const formData = new FormData();
+      formData.append("text", text);
+
+      fetch("/speak", {
+        method: "POST",
+        body: formData
+      })
+      .then(response => response.blob())
+      .then(blob => {
+        const url = URL.createObjectURL(blob);
+        const player = document.getElementById("audioPlayer");
+        player.src = url;
+        player.play();
+        player.onended = () => {
+          if (callback) callback();
+        };
+      })
+      .catch(err => {
+        console.error("❌ خطأ في الصوت:", err);
+        if (callback) callback();
+      });
+    }
+
+    const show = (text) => {
+      document.getElementById("heardText").innerText = `💬 ${text}`;
+    };
+
+    const listen = () => {
+      const r = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+      r.lang = 'ar-SA';
+
+      r.onstart = () => isListening = true;
+      r.onend = () => { isListening = false; setTimeout(listen, 800); };
+      r.onerror = () => { isListening = false; setTimeout(listen, 800); };
+
+      r.onresult = e => {
+        const t = e.results[0][0].transcript.trim();
+        const cleaned = t.toLowerCase().replace(/ال/g, "").trim();
+        show("🎧 سمع: " + t);
+
+        const searchTriggers = ["ابغى ابحث عن", "أبحث عن", "ابحث عن"];
+        for (let phrase of searchTriggers) {
+          if (cleaned.includes("عن")) {
+            let object = cleaned.split("عن").pop().trim();
+            document.getElementById("searchResult").innerText = `🔍 الكائن المراد البحث عنه: ${object}`;
+            speak("جاري البحث عن " + object);
+            return;
+          }
+        }
+
+        if (cleaned.includes("بحث")) {
+          window.location.href = "/static/search.html";
+        } else if (cleaned.includes("بث")) {
+          window.location.href = "/static/stream.html";
+        } else if (cleaned.includes("رفع")) {
+          window.location.href = "/static/upload.html";
+        } else if (cleaned.includes("رئيسيه")) {
+          window.location.href = "/";
+        }
+      };
+
+      r.start();
+    };
+
+    // ✅ تم تعديل هذا الجزء:
+    window.onload = () => {
+      speak("صفحة البحث", () => {
+        speak("ما الذي تريد العثور عليه؟", () => {
+          listen();
+        });
+      });
+    };
+  </script>
+</body>
+</html>

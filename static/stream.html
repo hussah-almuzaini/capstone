@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8" />
+  <title>صفحة البث </title>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css" />
+  <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+</head>
+<body>
+  <img id="logo" src="/static/logo.png" alt="شعار بصير">
+  <h1 id="pageTitle">مرحبًا بك في صفحة البث </h1>
+
+  <!-- عناصر الفيديو المطلوبة -->
+  <div id="videoContainer">
+    <video id="videoEl" autoplay muted></video>
+    <canvas id="canvasEl" style="display: none;"></canvas>
+    <p id="captionDisplay">بانتظار الوصف...</p>
+  </div>
+
+  <!-- مشغل صوت (مخفي) -->
+  <audio id="audioPlayer" style="display: none;" controls></audio>
+
+  <script>
+    let socket;
+    let lastCaption = "";
+
+    function speak(text, callback = null) {
+      const formData = new FormData();
+      formData.append("text", text);
+
+      fetch("/speak", {
+        method: "POST",
+        body: formData
+      })
+      .then(response => response.blob())
+      .then(blob => {
+        const url = URL.createObjectURL(blob);
+        const player = document.getElementById("audioPlayer");
+        player.src = url;
+        player.play();
+        player.onended = () => {
+          if (callback) callback();
+        };
+      })
+      .catch(err => {
+        console.error("❌ خطأ في تشغيل الصوت:", err);
+        if (callback) callback();
+      });
+    }
+
+    function setupWebSocket() {
+      socket = new WebSocket("ws://localhost:8000/ws");
+
+      socket.onopen = () => {
+        console.log("✅ WebSocket مفتوح");
+      };
+
+      socket.onclose = (e) => {
+        console.warn("🔌 WebSocket أغلق:", e.code, e.reason || "no reason");
+      };
+
+      socket.onerror = (e) => {
+        console.error("❌ WebSocket Error:", e);
+      };
+
+      socket.onmessage = (e) => {
+        try {
+          const msg = JSON.parse(e.data);
+          if (msg.type === "caption") {
+            if (msg.text !== lastCaption) {
+              lastCaption = msg.text;
+              console.log("📷 Caption:", lastCaption);
+
+              fetch("/translate", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ text: msg.text })
+              })
+              .then(res => res.json())
+              .then(data => {
+                if (data.arabic) {
+                  document.getElementById("captionDisplay").innerText = data.arabic;
+                  speak(data.arabic);
+                } else {
+                  document.getElementById("captionDisplay").innerText = "لم يتم الترجمة";
+                }
+              })
+              .catch(err => {
+                console.error("❌ فشل الترجمة:", err);
+              });
+            }
+          }
+        } catch (err) {
+          console.error("خطأ في معالجة الرسالة:", err);
+        }
+      };
+    }
+
+    function setupVideoStream() {
+      const video = document.getElementById("videoEl");
+      const canvas = document.getElementById("canvasEl");
+      if (!canvas) {
+        console.error("❌ عنصر canvasEl غير موجود في الصفحة.");
+        return;
+      }
+      const ctx = canvas.getContext("2d");
+
+      navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+        .then(stream => {
+          video.srcObject = stream;
+          video.addEventListener("loadeddata", () => {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            setInterval(() => {
+              ctx.drawImage(video, 0, 0);
+              const frame = canvas.toDataURL("image/jpeg");
+              if (socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({ type: "frame", data: frame }));
+              }
+            }, 3000);
+          });
+        })
+        .catch(err => alert("فشل تشغيل الكاميرا: " + err.message));
+    }
+
+    function startVoiceNavigation() {
+      const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+      recognition.lang = 'ar-SA';
+      recognition.continuous = false;
+
+      recognition.onresult = (event) => {
+        const speech = event.results[0][0].transcript.trim().toLowerCase();
+        const cleaned = speech.replace(/ال/g, "").replace(/\s+/g, "");
+        if (cleaned.includes("رفع")) {
+          window.location.href = "/static/upload.html";
+        } else if (cleaned.includes("بحث")) {
+          window.location.href = "/static/search.html";
+        } else if (cleaned.includes("رئيسيه")) {
+          window.location.href = "/";
+        }
+      };
+
+      recognition.onend = () => {
+        try { recognition.start(); } catch (e) {}
+      };
+      recognition.onerror = () => {
+        try { recognition.start(); } catch (e) {}
+      };
+      recognition.start();
+    }
+
+    window.onload = () => {
+      speak("صفحة البث", () => {
+        setupWebSocket();
+        setupVideoStream();
+        startVoiceNavigation();
+      });
+    };
+  </script>
+</body>
+</html>

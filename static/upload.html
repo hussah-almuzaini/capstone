@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <title>صفحة رفع الملف</title>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css" />
+  <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+</head>
+<body>
+  <img id="logo" src="/static/logo.png" alt="شعار بصير">
+  <h1>مرحباً بك في صفحة رفع الملف</h1>
+  <p id="heardText">🎧 بانتظار الصوت...</p>
+
+  <div id="uploadBox">
+    <h2>ارفع صورة أو فيديو</h2>
+    <form id="uploadForm" enctype="multipart/form-data">
+      <input id="fileInput" type="file" name="file" accept="image/*,video/*" required />
+      <button type="submit">📤 رفع وتحليل</button>
+    </form>
+    <div id="result">📌 النتيجة:</div>
+  </div>
+
+  <!-- مشغل صوت مخفي -->
+  <audio id="audioPlayer" style="display: none;" controls></audio>
+
+  <script>
+    let recognition;
+
+    const speak = (text, callback = null) => {
+      const formData = new FormData();
+      formData.append("text", text);
+
+      fetch("/speak", {
+        method: "POST",
+        body: formData
+      })
+      .then(response => response.blob())
+      .then(blob => {
+        const url = URL.createObjectURL(blob);
+        const player = document.getElementById("audioPlayer");
+        player.src = url;
+        player.play();
+        player.onended = () => {
+          if (callback) callback();
+        };
+      })
+      .catch(err => {
+        console.error("❌ خطأ في تشغيل الصوت:", err);
+        if (callback) callback();
+      });
+    };
+
+    const showMessage = (text) => {
+      document.getElementById("heardText").innerText = `💬 ${text}`;
+    };
+
+    const startListening = () => {
+      recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+      recognition.lang = 'ar-SA';
+      recognition.continuous = false;
+
+      recognition.onresult = (event) => {
+        const speech = event.results[0][0].transcript.trim().toLowerCase();
+        const cleaned = speech.replace(/ال/g, "").replace(/\s+/g, "");
+        showMessage("🎧 سمع: " + speech);
+
+        if (cleaned.includes("بحث")) {
+          window.location.href = "/static/search.html";
+        } else if (cleaned.includes("بث")) {
+          window.location.href = "/static/stream.html";
+        } else if (cleaned.includes("رئيسيه")) {
+          window.location.href = "/";
+        }
+      };
+
+      recognition.onend = () => recognition.start();
+      recognition.onerror = () => recognition.start();
+      recognition.start();
+    };
+
+    window.onload = () => {
+      speak("صفحة الرفع", () => {
+        startListening();
+      });
+    };
+
+    const form = document.getElementById("uploadForm");
+    const resultBox = document.getElementById("result");
+    const fileInput = document.getElementById("fileInput");
+
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      resultBox.innerHTML = "⏳ جاري التحليل...";
+      const formData = new FormData(form);
+
+      try {
+        const res = await fetch("/analyze", { method: "POST", body: formData });
+        const data = await res.json();
+
+        if (data.error) {
+          resultBox.innerHTML = "❌ خطأ: " + data.error;
+          return;
+        }
+
+        const file = fileInput.files[0];
+        const isVideo = file && file.type.includes("video");
+
+        if (isVideo) {
+          const summarizeRes = await fetch("/summarize", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ captions: data.captions })
+          });
+
+          const summary = await summarizeRes.json();
+          const paragraph = summary.summary || "لم يتم التلخيص";
+          resultBox.innerHTML = "<h3>📌 الملخص:</h3><p>" + paragraph + "</p>";
+          speak(paragraph);
+        } else {
+          const fullText = data.captions.join("\n");
+          const translateRes = await fetch("/translate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: fullText })
+          });
+
+          const translation = await translateRes.json();
+          if (translation && translation.arabic) {
+            resultBox.innerHTML = "<h3>📌 الترجمة:</h3><p>" + translation.arabic + "</p>";
+            speak(translation.arabic);
+          } else {
+            resultBox.innerHTML = "❌ لم يتم الترجمة بنجاح.";
+          }
+        }
+      } catch (err) {
+        console.error("⚠️ فشل الاتصال بالخادم:", err);
+        resultBox.innerHTML = "⚠️ فشل الاتصال بالخادم.";
+      }
+    };
+  </script>
+</body>
+</html>

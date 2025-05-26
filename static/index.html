@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8" />
+  <title>المساعد الصوتي</title>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css" />
+  <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+</head>
+<body>
+  <img id="logo" src="/static/logo.png" alt="شعار بصير">
+  <h1 id="pageTitle">مرحبًا بك في الصفحة الرئيسية</h1>
+  <button id="startButton">🎤 اضغطي لتشغيل المساعد</button>
+
+  <!-- مشغل صوت (مخفي) -->
+  <audio id="audioPlayer" style="display: none;" controls></audio>
+
+  <script>
+    let selectedVoice = null;
+    let continuousRecognition = null;
+    let awaitingCommand = false;
+    let alreadySpoken = false;
+
+    const socket = new WebSocket("ws://localhost:8000/ws");
+
+    function speak(text, callback = null) {
+      const formData = new FormData();
+      formData.append("text", text);
+
+      fetch("/speak", {
+        method: "POST",
+        body: formData
+      })
+      .then(response => response.blob())
+      .then(blob => {
+        const url = URL.createObjectURL(blob);
+        const player = document.getElementById("audioPlayer");
+        player.src = url;
+        player.play();
+        player.onended = () => {
+          if (callback) callback();
+        };
+      })
+      .catch(err => {
+        console.error("❌ خطأ في تشغيل الصوت:", err);
+        if (callback) callback();
+      });
+    }
+
+    function startListening() {
+      continuousRecognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+      continuousRecognition.lang = 'ar-SA';
+      continuousRecognition.start();
+
+      continuousRecognition.onresult = function(event) {
+        const text = event.results[0][0].transcript.trim().toLowerCase();
+
+        if (text.includes("بصير") && !awaitingCommand) {
+          awaitingCommand = true;
+          socket.send(text); // فقط إرسال
+          return;
+        }
+
+        if (awaitingCommand) {
+          socket.send(text);
+          return;
+        }
+      };
+
+      continuousRecognition.onerror = e => console.warn("❌", e.error);
+      continuousRecognition.onend = () => continuousRecognition.start();
+    }
+
+    socket.onmessage = function(event) {
+      const msg = event.data;
+
+      if (msg.startsWith("redirect:")) {
+        const targetURL = msg.split("redirect:")[1];
+        window.location.href = targetURL;
+        return;
+      }
+
+      if (msg.startsWith("goto:")) {
+        const rawPage = msg.split(":")[1];
+        const cleanedPage = rawPage.replace(/\u0627\u0644/g, "").trim();
+
+        if (cleanedPage.includes("بحث")) {
+          window.location.href = "/static/search.html";
+        } else if (cleanedPage.includes("بث")) {
+          window.location.href = "/static/stream.html";
+        } else if (cleanedPage.includes("رفع")) {
+          window.location.href = "/static/upload.html";
+        }
+      } else if (msg === "intro") {
+        speak("أهلاً؟");
+        awaitingCommand = true;
+      } else {
+        document.getElementById("pageTitle").innerText = msg;
+      }
+    };
+
+    document.getElementById("startButton").onclick = () => {
+      const trigger = () => {
+        if (alreadySpoken) return;
+        alreadySpoken = true;
+        speak("مرحباً بك في الصفحة الرئيسية", () => {
+          startListening();
+        });
+        document.getElementById("startButton").style.display = "none";
+      };
+
+      if (speechSynthesis.getVoices().length === 0) {
+        speechSynthesis.onvoiceschanged = trigger;
+      } else {
+        trigger();
+      }
+    };
+  </script>
+</body>
+</html>
