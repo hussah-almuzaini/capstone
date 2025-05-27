@@ -1,3 +1,4 @@
+# ✅ UPDATED main.py — Full Integration with upload.html
 import os
 import json
 import base64
@@ -23,21 +24,11 @@ processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base
 model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
 model.to("cuda" if torch.cuda.is_available() else "cpu")
 
-def generate_caption(image):
-    inputs = processor(image, return_tensors="pt").to(model.device)
-    with torch.no_grad():
-        output = model.generate(**inputs)
-        return processor.decode(output[0], skip_special_tokens=True)
+# إعداد Gemini
+genai.configure(api_key="AIzaSyBZ6pRM28ZS4oCeU6jL2a7H9G2nDa-jygg")
+gemini_model = genai.GenerativeModel("models/gemini-1.5-flash-latest")
 
-def caption_from_base64(img_base64: str) -> str:
-    try:
-        img_bytes = base64.b64decode(img_base64)
-        image = Image.open(BytesIO(img_bytes)).convert("RGB").resize((384, 384))
-        return generate_caption(image)
-    except Exception:
-        return "no caption"
-
-# إعداد التطبيق
+# إعداد FastAPI
 app = FastAPI()
 
 app.add_middleware(
@@ -53,6 +44,20 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 async def home():
     return FileResponse("static/index.html")
 
+def generate_caption(image):
+    inputs = processor(image, return_tensors="pt").to(model.device)
+    with torch.no_grad():
+        output = model.generate(**inputs)
+        return processor.decode(output[0], skip_special_tokens=True)
+
+def caption_from_base64(img_base64: str) -> str:
+    try:
+        img_bytes = base64.b64decode(img_base64)
+        image = Image.open(BytesIO(img_bytes)).convert("RGB").resize((384, 384))
+        return generate_caption(image)
+    except Exception:
+        return "no caption"
+
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
     await ws.accept()
@@ -67,18 +72,32 @@ async def websocket_endpoint(ws: WebSocket):
             if isinstance(payload, dict) and payload.get("type") == "frame":
                 _, img_str = payload["data"].split(",", 1)
                 caption = caption_from_base64(img_str)
+
+                # Gemini ترجمة
+                prompt = f"""
+                ترجم الوصف التالي إلى اللغة العربية فقط بدون أي إضافات أخرى:
+
+                {caption}
+                """
+                try:
+                    response = gemini_model.generate_content(prompt)
+                    arabic = getattr(response, "text", "").strip() or "❌ لم يتم الترجمة"
+                except Exception as e:
+                    print("❌ ترجمة فشلت:", e)
+                    arabic = "❌ لم يتم الترجمة"
+
                 await ws.send_text(json.dumps({
                     "type": "caption",
-                    "text": caption
+                    "text": caption,
+                    "arabic": arabic
                 }))
                 continue
 
+            # أوامر نصية أخرى
             msg = data.strip().lower()
             if "بصير" in msg:
                 await ws.send_text("intro")
-                print("🔁 تم إرسال intro للعميل")
                 continue
-
             cleaned = msg.replace("ال", " ").strip()
             if "بحث" in cleaned:
                 await ws.send_text("redirect:/static/search.html")
@@ -127,6 +146,33 @@ async def analyze_upload(file: UploadFile = File(...)):
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
+@app.post("/translate")
+async def translate_caption(request: Request):
+    data = await request.json()
+    english_text = data.get("text", "").strip()
+
+    prompt = f"""
+   أنت خبير في تلخيص أوصاف الفيديو إطارًا بإطار في سرد ​​متماسك وموجز. هدفك هو كتابة فقرة قصيرة وسلسة تصف بدقة الأنشطة الرئيسية وتسلسل أحداث الفيديو بلغة سليمة.
+
+الرجاء:
+- تجميع الأفعال المتكررة بشكل طبيعي.
+- استخدام مفردات دقيقة ووصفية.
+- الحفاظ على أسلوب محايد وغني بالمعلومات.
+- تجنب الكلمات غير الضرورية مثل "أساسًا" أو "أحيانًا" أو المصطلحات غير الملائمة إلا إذا كانت ضرورية للسياق.
+
+إليك قائمة التعليقات التوضيحية على مستوى الإطار:
+
+ثم قدمها باللغة العربية.
+    {english_text}
+    """
+    try:
+        response = gemini_model.generate_content(prompt)
+        arabic = getattr(response, "text", "").strip() or "❌ لم يتم الترجمة"
+        return {"arabic": arabic}
+    except Exception as e:
+        print("❌ خطأ أثناء الترجمة:", str(e))
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+
 @app.post("/speak")
 async def speak_text(text: str = Form(...)):
     speech_key = "aYYvI96UrDJCxaK4Licrl90KuNn2hJqGBznuU5d0S75x78XgOfYCJQQJ99BEACYeBjFXJ3w3AAAYACOGH4cd"
@@ -135,48 +181,18 @@ async def speak_text(text: str = Form(...)):
     speech_config = speechsdk.SpeechConfig(subscription=speech_key, region=service_region)
     speech_config.speech_synthesis_language = "ar-SA"
     speech_config.speech_synthesis_voice_name = "ar-SA-HamedNeural"
-
     synthesizer = speechsdk.SpeechSynthesizer(speech_config=speech_config)
 
     result = synthesizer.speak_text_async(text).get()
 
     if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
-        filename = f"{uuid.uuid4()}.wav"
+        filename = f"output_audio.wav"
         with open(filename, "wb") as f:
             f.write(result.audio_data)
         return FileResponse(filename, media_type="audio/wav", filename=filename)
     else:
+        cancellation = speechsdk.SpeechSynthesisCancellationDetails.from_result(result)
         return JSONResponse(
-            content={
-                "error": str(result.reason),
-                "details": str(result.error_details)
-            },
+            content={"error": str(result.reason), "details": f"{cancellation.reason}: {cancellation.error_details}"},
             status_code=500
         )
-
-
-@app.post("/translate")
-async def translate_caption(request: Request):
-    data = await request.json()
-    english_text = data.get("text", "").strip()
-    print("📥 النص المستلم للترجمة:", english_text)
-
-    prompt = f"""
-    ترجم الوصف التالي إلى اللغة العربية فقط بدون أي إضافات أخرى:
-
-    {english_text}
-    """
-
-    try:
-        from google import genai
-        genai.configure(api_key="AIzaSyBZ6pRM28ZS4oCeU6jL2a7H9G2nDa-jygg")
-
-        response = genai.generate_content(
-            model="models/gemini-1.5-flash-latest",
-            contents=[{"role": "user", "parts": [prompt]}]
-        )
-
-        return {"arabic": response.text.strip()}
-    except Exception as e:
-        print("❌ خطأ أثناء الترجمة:", str(e))
-        return JSONResponse(content={"error": str(e)}, status_code=500)

@@ -25,9 +25,12 @@
   <audio id="audioPlayer" style="display: none;" controls></audio>
 
   <script>
-    let recognition;
+    const form = document.getElementById("uploadForm");
+    const resultBox = document.getElementById("result");
+    const fileInput = document.getElementById("fileInput");
+    const audioPlayer = document.getElementById("audioPlayer");
 
-    const speak = (text, callback = null) => {
+    const speak = (text) => {
       const formData = new FormData();
       formData.append("text", text);
 
@@ -35,107 +38,70 @@
         method: "POST",
         body: formData
       })
-      .then(response => response.blob())
+      .then(res => res.blob())
       .then(blob => {
         const url = URL.createObjectURL(blob);
-        const player = document.getElementById("audioPlayer");
-        player.src = url;
-        player.play();
-        player.onended = () => {
-          if (callback) callback();
-        };
-      })
-      .catch(err => {
-        console.error("❌ خطأ في تشغيل الصوت:", err);
-        if (callback) callback();
+        audioPlayer.src = url;
+        audioPlayer.play();
       });
     };
-
-    const showMessage = (text) => {
-      document.getElementById("heardText").innerText = `💬 ${text}`;
-    };
-
-    const startListening = () => {
-      recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-      recognition.lang = 'ar-SA';
-      recognition.continuous = false;
-
-      recognition.onresult = (event) => {
-        const speech = event.results[0][0].transcript.trim().toLowerCase();
-        const cleaned = speech.replace(/ال/g, "").replace(/\s+/g, "");
-        showMessage("🎧 سمع: " + speech);
-
-        if (cleaned.includes("بحث")) {
-          window.location.href = "/static/search.html";
-        } else if (cleaned.includes("بث")) {
-          window.location.href = "/static/stream.html";
-        } else if (cleaned.includes("رئيسيه")) {
-          window.location.href = "/";
-        }
-      };
-
-      recognition.onend = () => recognition.start();
-      recognition.onerror = () => recognition.start();
-      recognition.start();
-    };
-
-    window.onload = () => {
-      speak("صفحة الرفع", () => {
-        startListening();
-      });
-    };
-
-    const form = document.getElementById("uploadForm");
-    const resultBox = document.getElementById("result");
-    const fileInput = document.getElementById("fileInput");
 
     form.onsubmit = async (e) => {
       e.preventDefault();
       resultBox.innerHTML = "⏳ جاري التحليل...";
       const formData = new FormData(form);
+      const file = fileInput.files[0];
+      const isVideo = file && file.type.includes("video");
 
       try {
-        const res = await fetch("/analyze", { method: "POST", body: formData });
-        const data = await res.json();
+        const analyzeRes = await fetch("/analyze", {
+          method: "POST",
+          body: formData
+        });
+        const analyzeData = await analyzeRes.json();
 
-        if (data.error) {
-          resultBox.innerHTML = "❌ خطأ: " + data.error;
+        if (analyzeData.error) {
+          resultBox.innerHTML = "❌ خطأ: " + analyzeData.error;
           return;
         }
 
-        const file = fileInput.files[0];
-        const isVideo = file && file.type.includes("video");
+        if (!Array.isArray(analyzeData.captions) || analyzeData.captions.length === 0) {
+          resultBox.innerHTML = "❌ لم يتم العثور على أي وصف.";
+          return;
+        }
 
+        const fullText = analyzeData.captions.join("\n");
+
+        // Handle image or video caption differently
         if (isVideo) {
-          const summarizeRes = await fetch("/summarize", {
+          // Optional: summarize then translate
+          const summaryRes = await fetch("/translate", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ captions: data.captions })
+            body: JSON.stringify({ text: fullText })
           });
+          const summaryData = await summaryRes.json();
+          const translation = summaryData.arabic || "❌ لم يتم الترجمة";
 
-          const summary = await summarizeRes.json();
-          const paragraph = summary.summary || "لم يتم التلخيص";
-          resultBox.innerHTML = "<h3>📌 الملخص:</h3><p>" + paragraph + "</p>";
-          speak(paragraph);
+          resultBox.innerHTML = `<h3>📌 ترجمة الملخص:</h3><p>${translation}</p>`;
+          speak(translation);
         } else {
-          const fullText = data.captions.join("\n");
+          // For single image: translate directly
           const translateRes = await fetch("/translate", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ text: fullText })
           });
-
           const translation = await translateRes.json();
-          if (translation && translation.arabic) {
-            resultBox.innerHTML = "<h3>📌 الترجمة:</h3><p>" + translation.arabic + "</p>";
-            speak(translation.arabic);
-          } else {
-            resultBox.innerHTML = "❌ لم يتم الترجمة بنجاح.";
-          }
+          const arabic = translation.arabic || "❌ لم يتم الترجمة";
+
+          resultBox.innerHTML = `<h3>📌 الترجمة:</h3><p>${arabic}</p>`;
+          speak(arabic);
         }
+
       } catch (err) {
-        console.error("⚠️ فشل الاتصال بالخادم:", err);
-        resultBox.innerHTML = "⚠️ فشل الاتصال بالخادم.";
+        resultBox.innerHTML = "⚠️ حدث خطأ أثناء الاتصال بالخادم.";
+        console.error("⚠️ Server error:", err);
       }
     };
   </script>
