@@ -5,6 +5,7 @@ import base64
 import uuid
 import tempfile
 from io import BytesIO
+from dotenv import load_dotenv
 
 from fastapi import FastAPI, WebSocket, UploadFile, File, Form, Request
 from fastapi.responses import FileResponse, JSONResponse
@@ -18,14 +19,15 @@ import torch
 import azure.cognitiveservices.speech as speechsdk
 import google.generativeai as genai
 from transformers import BlipProcessor, BlipForConditionalGeneration
-
+load_dotenv()
 # إعداد BLIP
 processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
 model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
 model.to("cuda" if torch.cuda.is_available() else "cpu")
 
 # إعداد Gemini
-genai.configure(api_key="AIzaSyCPIjx_zWVBj2SH-Mcr9ME0rLKvYj-2LDI")
+genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+
 gemini_model = genai.GenerativeModel("models/gemini-1.5-flash-latest")
 
 # إعداد FastAPI
@@ -176,7 +178,7 @@ async def translate_caption(request: Request):
 
 @app.post("/speak")
 async def speak_text(text: str = Form(...)):
-    speech_key = "aYYvI96UrDJCxaK4Licrl90KuNn2hJqGBznuU5d0S75x78XgOfYCJQQJ99BEACYeBjFXJ3w3AAAYACOGH4cd"
+    speech_key = os.getenv("AZURE_SPEECH_KEY")    
     service_region = "eastus"
 
     speech_config = speechsdk.SpeechConfig(subscription=speech_key, region=service_region)
