@@ -25,7 +25,7 @@ model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-capt
 model.to("cuda" if torch.cuda.is_available() else "cpu")
 
 # إعداد Gemini
-genai.configure(api_key="AIzaSyBZ6pRM28ZS4oCeU6jL2a7H9G2nDa-jygg")
+genai.configure(api_key="AIzaSyCPIjx_zWVBj2SH-Mcr9ME0rLKvYj-2LDI")
 gemini_model = genai.GenerativeModel("models/gemini-1.5-flash-latest")
 
 # إعداد FastAPI
@@ -168,7 +168,8 @@ async def translate_caption(request: Request):
     try:
         response = gemini_model.generate_content(prompt)
         arabic = getattr(response, "text", "").strip() or "❌ لم يتم الترجمة"
-        return {"arabic": arabic}
+        return {"translated": arabic}
+
     except Exception as e:
         print("❌ خطأ أثناء الترجمة:", str(e))
         return JSONResponse(content={"error": str(e)}, status_code=500)

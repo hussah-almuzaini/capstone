@@ -45,6 +45,36 @@
         audioPlayer.play();
       });
     };
+    let isListening = false;
+
+
+    const listen = () => {
+      const r = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+      r.lang = 'ar-SA';
+
+      r.onstart = () => isListening = true;
+      r.onend = () => { isListening = false; setTimeout(listen, 800); };
+      r.onerror = () => { isListening = false; setTimeout(listen, 800); };
+
+      r.onresult = e => {
+  const t = e.results[0][0].transcript.trim();
+  const cleaned = t.toLowerCase().replace(/ال/g, "").trim();
+  console.log("🎧 سمعت:", t, "| بعد التنظيف:", cleaned); 
+
+  if (cleaned.includes("بحث")) {
+    window.location.href = "/static/search.html";
+  } else if (cleaned.includes("بث")) {
+    window.location.href = "/static/stream.html";
+  } else if (cleaned.includes("رفع")) {
+    window.location.href = "/static/upload.html";
+  } else if (cleaned.includes("رئيسيه")) {
+    window.location.href = "/";
+  }
+};
+
+
+      r.start();
+    };
 
     form.onsubmit = async (e) => {
       e.preventDefault();
@@ -70,40 +100,33 @@
           return;
         }
 
+ 
+        const captions = analyzeData.captions;
+
         const fullText = analyzeData.captions.join("\n");
 
-        // Handle image or video caption differently
-        if (isVideo) {
-          // Optional: summarize then translate
-          const summaryRes = await fetch("/translate", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ text: fullText })
-          });
-          const summaryData = await summaryRes.json();
-          const translation = summaryData.arabic || "❌ لم يتم الترجمة";
+        // ترجم الوصف
+        const translationRes = await fetch("/translate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: fullText })
+        });
 
-          resultBox.innerHTML = `<h3>📌 ترجمة الملخص:</h3><p>${translation}</p>`;
-          speak(translation);
-        } else {
-          // For single image: translate directly
-          const translateRes = await fetch("/translate", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ text: fullText })
-          });
-          const translation = await translateRes.json();
-          const arabic = translation.arabic || "❌ لم يتم الترجمة";
+        const translationData = await translationRes.json();
+        const translated = translationData.translated || "❌ لم يتم الترجمة";
 
-          resultBox.innerHTML = `<h3>📌 الترجمة:</h3><p>${arabic}</p>`;
-          speak(arabic);
-        }
+        //resultBox.innerHTML = `<h3>📌 الترجمة:</h3><p>${translated}</p>`;
+        speak(translated);
+
 
       } catch (err) {
         resultBox.innerHTML = "⚠️ حدث خطأ أثناء الاتصال بالخادم.";
         console.error("⚠️ Server error:", err);
       }
+
     };
+
+    listen();
   </script>
 </body>
 </html>

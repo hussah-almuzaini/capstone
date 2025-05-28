@@ -1,10 +1,10 @@
 :root {
-  --main-bg: #f7f1eb;
+  --main-bg: #f5f5f5;
   --main-text: #2d2d2d;
-  --accent: #d49a5a;
-  --accent-dark: #b87e45;
-  --light-box: #fffdfc;
-  --border-color: #e0d6cc;
+  --accent: #28dfe0;
+  --accent-dark: #1bb5b5;
+  --light-box: #ffffff;
+  --border-color: #dddddd;
 }
 
 body {
@@ -17,27 +17,26 @@ body {
 }
 
 #logo {
-  width: 130px;
-  margin: 0 auto 10px;
+  width: 140px;
+  margin: 10px auto 20px;
   display: block;
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
 }
 
 h1, h2, h3 {
-  color: var(--main-text);
-  margin-top: 10px;
+  color: var(--accent-dark);
   font-weight: 700;
+  margin-top: 10px;
 }
 
 button {
   background-color: var(--accent);
-  color: #fff;
+  color: #000;
   border: none;
-  padding: 10px 22px;
+  padding: 12px 28px;
   font-size: 16px;
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
-  transition: background-color 0.3s;
+  transition: background-color 0.3s ease;
   margin-top: 20px;
   font-family: 'Tajawal', sans-serif;
 }
@@ -54,7 +53,7 @@ button:hover {
   background-color: var(--light-box);
   border: 2px solid var(--border-color);
   border-radius: 16px;
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.05);
 }
 
 #uploadBox h2 {
@@ -69,6 +68,8 @@ input[type="file"] {
   padding: 8px;
   border: 1px solid #ccc;
   border-radius: 6px;
+  background-color: #fff;
+  color: #000;
 }
 
 #uploadForm {
@@ -100,27 +101,44 @@ input[type="file"] {
 }
 
 #videoContainer {
-  width: 640px;
-  max-width: 90%;
   margin: 40px auto;
-  padding: 16px;
+  padding: 20px;
+  width: fit-content; /* المحتوى يحدد الحجم */
   background-color: var(--light-box);
   border: 2px solid var(--border-color);
   border-radius: 16px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.06);
   display: flex;
   flex-direction: column;
   align-items: center;
 }
 
 video {
-  width: 100%;
+  width: 700px;    /* 👈 العرض */
+  height: 300px;   /* 👈 الطول أكبر شوي */
   border-radius: 12px;
-  border: 1px solid #ddd;
+  border: 1px solid #ccc;
+  object-fit: cover; /* يخلي الفيديو يغطي بدون تشويه */
 }
 
-#captionDisplay {
-  margin-top: 14px;
-  font-size: 18px;
-  color: #333;
+
+
+#captions {
+  background-color: var(--light-box);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 20px;
+  margin: 30px auto;
+  max-width: 600px;
+  color: var(--main-text);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
+}
+
+#captionAR {
+  font-size: 20px;
+  color: var(--accent-dark);
+}
+
+audio {
+  margin-top: 15px;
 }

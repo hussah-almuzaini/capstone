@@ -1,20 +1,21 @@
 <!DOCTYPE html>
 <html lang="ar">
 <head>
-  <meta charset="UTF-8">
-  <title>البث المباشر مع الترجمة</title>
-  <link rel="stylesheet" href="/static/style.css" />
+    <meta charset="UTF-8">
+    <title>صفحة البث المباشر </title>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css" />
+    <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
 </head>
 <body>
-  <h1>📷 البث المباشر مع الترجمة</h1>
+  <h1>البث المباشر مع الترجمة</h1>
+  <p id="heardText">🎧 بانتظار الصوت...</p>
   <video id="video" autoplay muted playsinline></video>
   <canvas id="canvas" style="display: none;"></canvas>
 
   <div id="captions">
-    <h3>📝 الوصف بالإنجليزية:</h3>
-    <p id="captionEN">...</p>
     <h3>🌍 الترجمة:</h3>
-    <p id="captionAR">...</p>
+  <p id="captionAR">جاري الترجمة...</p>
   </div>
 
   <audio id="audioPlayer" style="display: none;" controls></audio>
@@ -25,11 +26,12 @@
     const ctx = canvas.getContext("2d");
     const ws = new WebSocket("ws://localhost:8000/ws");
 
-    const captionEN = document.getElementById("captionEN");
     const captionAR = document.getElementById("captionAR");
     const audioPlayer = document.getElementById("audioPlayer");
 
     function speak(text) {
+      if (!text || text.trim() === "") return;
+
       const formData = new FormData();
       formData.append("text", text);
 
@@ -40,45 +42,93 @@
       .then(res => res.blob())
       .then(blob => {
         const url = URL.createObjectURL(blob);
+        audioPlayer.pause();
         audioPlayer.src = url;
         audioPlayer.play();
       })
       .catch(err => console.error("❌ فشل في تشغيل الصوت:", err));
     }
 
-    // 🧠 Receive caption messages
-    ws.onmessage = (event) => {
+    ws.onmessage = async (event) => {
       const msg = JSON.parse(event.data);
-      if (msg.type === "caption") {
-        captionEN.innerText = msg.text || "لا يوجد وصف";
-        captionAR.innerText = msg.arabic || "❌ الترجمة غير متوفرة";
-        if (msg.arabic && msg.arabic !== "❌ الترجمة غير متوفرة") {
-          speak(msg.arabic);
+
+      if (msg.type === "caption" && msg.text) {
+        try {
+          // إرسال النص الإنجليزي إلى /translate
+          const res = await fetch("/translate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: msg.text })
+          });
+
+          const data = await res.json();
+          const translated = data.translated || "❌ الترجمة غير متوفرة";
+
+          captionAR.innerText = translated;
+          if (translated && translated !== "❌ الترجمة غير متوفرة") {
+            speak(translated);
+          }
+
+        } catch (err) {
+          console.error("❌ فشل في الترجمة:", err);
         }
       }
     };
 
-    // 📸 Start camera
+    let isListening = false;
+
+    const listen = () => {
+      const r = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+      r.lang = 'ar-SA';
+
+      r.onstart = () => isListening = true;
+      r.onend = () => { isListening = false; setTimeout(listen, 800); };
+      r.onerror = () => { isListening = false; setTimeout(listen, 800); };
+
+      r.onresult = e => {
+        const t = e.results[0][0].transcript.trim();
+        const cleaned = t.toLowerCase().replace(/ال/g, "").trim();
+
+        if (cleaned.includes("بحث")) {
+          window.location.href = "/static/search.html";
+        } else if (cleaned.includes("بث")) {
+          window.location.href = "/static/stream.html";
+        } else if (cleaned.includes("رفع")) {
+          window.location.href = "/static/upload.html";
+        } else if (cleaned.includes("رئيسيه")) {
+          window.location.href = "/";
+        }
+      };
+
+      r.start();
+    };
+
+    // تفعيل الكاميرا وإرسال الإطارات
     navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
       video.srcObject = stream;
-      // 🔁 Send frame every second
+
       setInterval(() => {
-  if (ws.readyState === WebSocket.OPEN) {
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const dataUrl = canvas.toDataURL("image/jpeg");
-    ws.send(JSON.stringify({
-      type: "frame",
-      data: dataUrl
-    }));
-  } else {
-    console.warn("⚠️ WebSocket مغلق، لم يتم إرسال الإطار.");
-  }
-}, 1000);
+        if (ws.readyState === WebSocket.OPEN) {
+          if (video.videoWidth === 0 || video.videoHeight === 0) return;
+
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const dataUrl = canvas.toDataURL("image/jpeg");
+
+          ws.send(JSON.stringify({
+            type: "frame",
+            data: dataUrl
+          }));
+        }
+      }, 5000);
     }).catch(err => {
       alert("🚫 فشل في الوصول إلى الكاميرا: " + err.message);
     });
+
+  
+      listen();
+   
   </script>
 </body>
 </html>
