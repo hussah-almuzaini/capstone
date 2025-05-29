@@ -1,11 +1,12 @@
 :root {
-  --main-bg: #f5f5f5;
-  --main-text: #2d2d2d;
-  --accent: #28dfe0;
-  --accent-dark: #1bb5b5;
-  --light-box: #ffffff;
-  --border-color: #dddddd;
+  --main-bg: #f2f5f6;          
+  --main-text: #2f3d42;        
+  --accent: #24a4b9;           
+  --accent-dark: #107486;       
+  --light-box: #ffffff;         
+  --border-color: #d3d8db;     
 }
+
 
 body {
   background-color: var(--main-bg);
