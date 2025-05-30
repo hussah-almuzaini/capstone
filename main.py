@@ -147,6 +147,40 @@ async def analyze_upload(file: UploadFile = File(...)):
 
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
+        ############################
+
+@app.post("/analyze_from_static")
+def analyze_from_static():
+    try:
+        video_path = "static/test.mp4"  # غيّر اسم الملف إذا عندك فيديو آخر
+
+        cap = cv2.VideoCapture(video_path)
+        if not cap.isOpened():
+            return JSONResponse(content={"error": "❌ لم يتم فتح الفيديو"}, status_code=400)
+
+        captions = []
+        frame_skip = 90  # تحليل إطار كل 30 فريم
+        frame_count = 0
+
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                break
+            if frame_count % frame_skip == 0:
+                rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                image = Image.fromarray(rgb).resize((384, 384))
+                captions.append(generate_caption(image))
+            frame_count += 1
+
+        cap.release()
+        return {"captions": captions}
+
+    except Exception as e:
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+
+
+
+        ####################################
 
 @app.post("/translate")
 async def translate_caption(request: Request):
