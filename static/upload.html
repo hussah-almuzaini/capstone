@@ -128,6 +128,20 @@
           } else if (cleaned.includes("رئيسيه")) {
             window.location.href = "/";
           }
+          else if (cleaned.includes("خبر")) {
+  fetch("/news", { method: "POST" })
+    .then(res => res.json())
+    .then(data => {
+      const newsText = data.news || "❌ لم يتم الحصول على الأخبار";
+      speak(newsText);
+    })
+    .catch(err => {
+      console.error("❌ خطأ في جلب الأخبار:", err);
+      speak("حدث خطأ أثناء جلب الأخبار.");
+    });
+}
+
+
         };
 
         r.start();
@@ -138,6 +152,12 @@
 
     // ⏱️ تشغيل الاستماع عند فتح الصفحة
     listen();
+
+    window.onload = () => {
+  speak("إذا كنت تريد رفـع المقطع، الرجاء قول: افتح أو حمل الملف");
+  listen();
+};
+    
 
     // 🔄 تحقق دوري: إعادة تفعيل الاستماع إذا توقف فجأة
     setInterval(() => {
