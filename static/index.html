@@ -59,6 +59,21 @@
       } else if (cleaned.includes("رئيسية")) {
         window.location.href = "/";
       }
+      else if (cleaned.includes("خبر")) {
+  fetch("/news", { method: "POST" })
+    .then(res => res.json())
+    .then(data => {
+      const newsText = data.news || "❌ لم يتم الحصول على الأخبار";
+      speak(newsText);
+    })
+    .catch(err => {
+      console.error("❌ خطأ في جلب الأخبار:", err);
+      speak("حدث خطأ أثناء جلب الأخبار.");
+    });
+}
+
+
+
 
       // إرسال للنظام الخلفي (اختياري)
       socket.send(text);
@@ -99,7 +114,7 @@
       if (alreadySpoken) return;
       alreadySpoken = true;
 
-      speak("مرحباً بك في الصفحة الرئيسية", () => {
+      speak("مرحباً بك في الصفحة الرئيسية لدخول صفحة الرفع لتحليل المقاطع و الصور الرجاء قول صفحة الرفع. لدخول صفحة البث لتحليل ما يجري حواليك الرجاء قول صفحة البث. لدخول صفحة بحث ل اشياء معينة الرجاء قول صفحة البحث. لسماع موجز اخر الاخبار في السعودية الرجاء قول خبر", () => {
         startListening();
       });
 

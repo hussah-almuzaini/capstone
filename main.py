@@ -147,12 +147,46 @@ async def analyze_upload(file: UploadFile = File(...)):
 
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
+        ############################
+
+@app.post("/analyze_from_static")
+def analyze_from_static():
+    try:
+        video_path = "static/test.mp4"  # غيّر اسم الملف إذا عندك فيديو آخر
+
+        cap = cv2.VideoCapture(video_path)
+        if not cap.isOpened():
+            return JSONResponse(content={"error": "❌ لم يتم فتح الفيديو"}, status_code=400)
+
+        captions = []
+        frame_skip = 90  # تحليل إطار كل 30 فريم
+        frame_count = 0
+
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                break
+            if frame_count % frame_skip == 0:
+                rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                image = Image.fromarray(rgb).resize((384, 384))
+                captions.append(generate_caption(image))
+            frame_count += 1
+
+        cap.release()
+        return {"captions": captions}
+
+    except Exception as e:
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+
+
+
+        ####################################
 
 @app.post("/translate")
 async def translate_caption(request: Request):
     data = await request.json()
     english_text = data.get("text", "").strip()
-
+    mode = data.get("mode", "translate")
     prompt = f"""
    أنت خبير في تلخيص أوصاف الفيديو إطارًا بإطار في سرد ​​متماسك وموجز. هدفك هو كتابة فقرة قصيرة وسلسة تصف بدقة الأنشطة الرئيسية وتسلسل أحداث الفيديو بلغة سليمة.
 
@@ -202,6 +236,21 @@ async def speak_text(text: str = Form(...)):
             content={"error": str(result.reason), "details": f"{cancellation.reason}: {cancellation.error_details}"},
             status_code=500
         )
+
+@app.post("/news")
+async def news_caption(request: Request):
+    prompt =f"""
+انت ناشر احدث الاخبار في السعودية الرجاء قولها لشخص بشكل    و محترف 
+
+ عطني النص فقط بدون اي تنسيق للنص نفسه وبدون اي علامات ترقيم ة *   """
+    try:
+        response = gemini_model.generate_content(prompt)
+        news = getattr(response, "text", "").strip() or "❌ لم يتم توليد الخبر"
+        return {"news": news}
+
+    except Exception as e:
+        print("❌ خطأ أثناء توليد الخبر:", str(e))
+        return JSONResponse(content={"error": str(e)}, status_code=500)
 @app.get("/depth-live")
 async def depth_page():
     return FileResponse("static/search.html")
