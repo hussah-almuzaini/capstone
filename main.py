@@ -229,7 +229,6 @@ async def ws_depth_live(ws: WebSocket):
         name_translation = {
             "person": "شخص",
             "chair": "كرسي",
-            'cell phone': "هاتف",
             "handbag": "حقيبة",
             "backpack": "حقيبة",
             "dining table": "طاولة",
