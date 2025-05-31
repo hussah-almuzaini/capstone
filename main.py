@@ -251,6 +251,7 @@ async def news_caption(request: Request):
     except Exception as e:
         print("❌ خطأ أثناء توليد الخبر:", str(e))
         return JSONResponse(content={"error": str(e)}, status_code=500)
+    
 @app.get("/depth-live")
 async def depth_page():
     return FileResponse("static/search.html")
