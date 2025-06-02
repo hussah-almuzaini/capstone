@@ -1,0 +1,747 @@
+<!-- <!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8" />
+  <title>مساعد المكفوفين</title>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css" />
+  <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+</head>
+<body>
+  <img id="logo" src="/static/logo.png" alt="شعار بصير">
+  <h1>🔍 مساعد المكفوفين - البحث الصوتي</h1>
+  <p id="heardText">🎧 في انتظار الأمر الصوتي...</p>
+  <pre id="result"></pre>
+  <audio id="audio" controls style="display:none"></audio>
+  <video id="video" width="320" height="240" autoplay muted></video>
+
+  <script>
+    let ws;
+    let detectionTarget = "person";
+    function playAudioBlob(blob, callback = null) {
+      const audio = document.getElementById("audio");
+      const url = URL.createObjectURL(blob);
+
+      // Stop current playback
+      audio.pause();
+      audio.currentTime = 0;
+
+      // Replace source and play
+      audio.src = url;
+      audio.style.display = 'block';
+
+      // Play and wait until it ends before allowing next
+      audio.play().then(() => {
+        audio.onended = () => {
+          if (callback) callback();
+        };
+      }).catch(e => {
+        console.warn("Audio error:", e.message);
+        if (callback) callback();  // Fallback even on error
+      });
+    }
+    function speak(text, callback = null) {
+      const formData = new FormData();
+      formData.append("text", text);
+      fetch("/speak", { method: "POST", body: formData })
+        .then(response => response.blob())
+        .then(blob => {
+          playAudioBlob(blob, callback);
+        });
+    }
+
+    function listenForCommandOrTarget(callback) {
+      const r = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+      r.lang = 'ar-SA';
+      r.onresult = e => {
+        const t = e.results[0][0].transcript.trim().toLowerCase();
+        document.getElementById("heardText").innerText = `💬 سمع: ${t}`;
+
+        if (t.includes("الرئيسية") || t.includes("رجوع") || t.includes("هوم")|| t.includes("ارجع")|| t.includes("اخرج")) {
+          detectionTarget = "back";
+          speak("جاري الرجوع إلى الصفحة الرئيسية");
+          window.location.href = "/";
+          return;
+        }
+
+        if (t.includes("شخص") || t.includes("1")) {
+          detectionTarget = "person";
+        } else if (t.includes("كرسي") || t.includes("2")) {
+          detectionTarget = "chair";
+        } else if (t.includes("هاتف") || t.includes("3")) {
+          detectionTarget = "cell phone";
+        } else if (t.includes("حقيبة") || t.includes("4")) {
+          detectionTarget = "handbag";
+        } else if (t.includes("طاولة") || t.includes("5")) {
+          detectionTarget = "dining table";
+        } else if (t.includes("تلفاز") || t.includes("6")) {
+          detectionTarget = "tv";
+        }
+          else {
+          speak("لم أفهم الأمر. حاول مرة أخرى.");
+          return;
+        }
+
+        if (callback) callback();
+      };
+      r.start();
+    }
+
+    async function startDetection() {
+      ws = new WebSocket(`ws://${location.host}/ws/depth-live`);
+      ws.onopen = () => {
+        ws.send(JSON.stringify({ target: detectionTarget }));
+      };
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        document.getElementById('result').textContent = data.description || data.error || '';
+        if (data.audio_url) {
+          const audio = document.getElementById('audio');
+          fetch(data.audio_url)
+            .then(response => response.blob())
+            .then(blob => {
+              playAudioBlob(blob, () => {
+                speak("هل تريد الكشف عن هدف آخر أو الرجوع؟", () => {
+                  listenForCommandOrTarget(() => {
+                    if (detectionTarget === "back") {
+                      speak("جاري الرجوع إلى الصفحة الرئيسية");
+                      window.location.href = "/";
+                    } else {
+                      ws.send(JSON.stringify({ target: detectionTarget }));
+                    }
+                  });
+                });
+              });
+            });
+          // audio.onended = () => {
+          //   speak("هل تريد الكشف عن هدف آخر أو الرجوع؟", () => {
+          //     listenForCommandOrTarget(() => {
+          //       ws.send(JSON.stringify({ target: detectionTarget }));
+          //     });
+          //   });
+          // };
+        }
+      };
+
+      const video = document.getElementById('video');
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      video.srcObject = stream;
+
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+
+      setInterval(() => {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0);
+        canvas.toBlob(blob => {
+          if (ws.readyState === 1) {
+            const reader = new FileReader();
+            reader.onload = () => {
+              ws.send(reader.result);
+            };
+            reader.readAsDataURL(blob);
+          }
+        }, 'image/jpeg', 0.7);
+      }, 300);
+    }
+
+    window.onload = () => {
+      speak("اختر الهدف: 1 شخص، 2 كرسي، 3 هاتف، 4 حقيبة، 5 طاولة، 6 تلفاز", () => {
+        listenForCommandOrTarget(() => {
+          startDetection();
+        });
+      });
+    };
+  </script>
+</body>
+</html> -->
+<!-- old version works like a charm -->
+
+
+
+<!-- new version should be better -->
+<!-- 
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8" />
+  <title>مساعد المكفوفين</title>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css" />
+  <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+</head>
+<body>
+  <img id="logo" src="/static/logo.png" alt="شعار بصير">
+  <h1>🔍 مساعد المكفوفين - البحث الصوتي</h1>
+  <p id="heardText">🎧 في انتظار الأمر الصوتي...</p>
+  <pre id="result"></pre>
+  <audio id="audio" controls style="display:none"></audio>
+  <video id="video" width="320" height="240" autoplay muted></video>
+
+  <script>
+    let ws;
+    let detectionTarget = "person";
+    let detectionCooldown = {};
+    let lastPromptTime = 0;
+    const audio = document.getElementById("audio");
+
+    function speak(text, callback = null) {
+      const formData = new FormData();
+      formData.append("text", text);
+      fetch("/speak", { method: "POST", body: formData })
+        .then(response => response.blob())
+        .then(blob => {
+          const url = URL.createObjectURL(blob);
+          audio.pause();
+          audio.currentTime = 0;
+          audio.src = url;
+          audio.style.display = 'block';
+          audio.play();
+          if (callback) audio.onended = callback;
+        });
+    }
+
+    function listenForExitCommand() {
+      const r = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+      r.lang = 'ar-SA';
+      r.onresult = e => {
+        const t = e.results[0][0].transcript.trim().toLowerCase();
+        if (t.includes("الرئيسية") || t.includes("رجوع") || t.includes("توقف")) {
+          speak("جاري الرجوع إلى الصفحة الرئيسية", () => {
+            window.location.href = "/";
+          });
+        }
+      };
+      r.start();
+    }
+
+    async function startDetection() {
+      ws = new WebSocket(`ws://${location.host}/ws/depth-live`);
+      ws.onopen = () => {
+        ws.send(JSON.stringify({ target: detectionTarget }));
+      };
+
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.description) {
+          const now = Date.now();
+          // if (!detectionCooldown[data.description] || (now - detectionCooldown[data.description] > 7000)) {
+          //   detectionCooldown[data.description] = now;
+          document.getElementById('result').textContent = data.description;
+
+          if (data.audio_url) {
+            fetch(data.audio_url)
+              .then(response => response.blob())
+              .then(blob => {
+                const url = URL.createObjectURL(blob);
+                audio.pause();
+                audio.currentTime = 0;
+                audio.src = url;
+                audio.style.display = 'block';
+                audio.play();
+              });
+          }
+          // }
+        }
+      };
+
+      const video = document.getElementById('video');
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      video.srcObject = stream;
+
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+
+      setInterval(() => {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0);
+        canvas.toBlob(blob => {
+          if (ws.readyState === 1) {
+            const reader = new FileReader();
+            reader.onload = () => {
+              ws.send(reader.result);
+            };
+            reader.readAsDataURL(blob);
+          }
+        }, 'image/jpeg', 0.7);
+      }, 500);
+    }
+
+    window.onload = () => {
+      speak("مرحبًا، اختر الهدف المطلوب: 1 شخص، 2 كرسي، 3 كمبيوتر، 4 حقيبة، 5 طاولة، 6 تلفاز. أو قل رجوع للعودة إلى الصفحة الرئيسية.", () => {
+        const r = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+        r.lang = 'ar-SA';
+        r.onresult = e => {
+          const t = e.results[0][0].transcript.trim().toLowerCase();
+          if (t.includes("شخص") || t.includes("1")) detectionTarget = "person";
+          else if (t.includes("كرسي") || t.includes("2")) detectionTarget = "chair";
+          else if (t.includes("كمبيوتر") || t.includes("3")) detectionTarget = "laptop";
+          else if (t.includes("حقيبة") || t.includes("4")) detectionTarget = "backpack";
+          else if (t.includes("طاولة") || t.includes("5")) detectionTarget = "dining table";
+          else if (t.includes("تلفاز") || t.includes("6")) detectionTarget = "tv";
+          else if (t.includes("رجوع") || t.includes("الرئيسية")) {
+            window.location.href = "/";
+            return;
+          }
+          startDetection();
+          // Start passive exit listening every 15 seconds
+          setInterval(listenForExitCommand, 15000);
+        };
+        r.start();
+      });
+    };
+  </script>
+</body>
+</html> -->
+
+
+
+<!-- extra version -->
+
+<!-- <!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8" />
+  <title>مساعد المكفوفين</title>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css" />
+  <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+</head>
+<body>
+  <img id="logo" src="/static/logo.png" alt="شعار بصير">
+  <h1>🔍 مساعد المكفوفين - البحث الصوتي</h1>
+  <p id="heardText">🎧 في انتظار الأمر الصوتي...</p>
+  <pre id="result"></pre>
+  <audio id="audio" controls style="display:none"></audio>
+  <video id="video" width="640" height="440" autoplay muted></video>
+
+  <script>
+    let ws;
+    let detectionTarget = "person";
+    const audio = document.getElementById("audio");
+    let isListening = false;
+    let lastDescription = "";
+
+    function speak(text, callback = null) {
+      const formData = new FormData();
+      formData.append("text", text);
+      fetch("/speak", { method: "POST", body: formData })
+        .then(response => response.blob())
+        .then(blob => {
+          const url = URL.createObjectURL(blob);
+          audio.pause();
+          audio.currentTime = 0;
+          audio.src = url;
+          audio.style.display = 'block';
+
+          audio.play().then(() => {
+            console.log("🔊 Audio playing...");
+          }).catch(err => {
+            console.warn("❌ Audio play failed:", err.message);
+          });
+
+          audio.onended = () => {
+            console.log("✅ Audio ended");
+            isListening = false;
+            if (callback) callback();
+          };
+
+          audio.onerror = () => {
+            console.warn("❌ Audio playback error");
+            isListening = false;
+            if (callback) callback();
+          };
+        });
+    }
+
+    function continuousExitListener() {
+      if (isListening || !audio.paused || userCommandInProgress) return;
+
+      isListening = false;
+      userCommandInProgress = false;
+
+      speak("أنا أستمع الآن. قل رجوع للعودة إلى الصفحة الرئيسية.", () => {
+        try {
+          const r = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+          r.lang = 'ar-SA';
+
+          r.onresult = e => {
+            const t = e.results[0][0].transcript.trim().toLowerCase();
+            if (t.includes("رجوع") || t.includes("الرئيسية") || t.includes("توقف")) {
+              speak("جاري الرجوع إلى الصفحة الرئيسية", () => {
+                window.location.href = "/";
+              });
+            } else {
+              userCommandInProgress = false;
+            }
+          };
+
+          r.onend = () => {
+            isListening = false;
+            userCommandInProgress = false;
+          };
+          r.onerror = () => {
+            isListening = false;
+            userCommandInProgress = false;
+          };
+
+          r.start();
+        } catch (err) {
+          console.error("SpeechRecognition error:", err);
+          isListening = false;
+          userCommandInProgress = false;
+        }
+      });
+    }
+
+
+    async function startDetection() {
+      ws = new WebSocket(`ws://${location.host}/ws/depth-live`);
+
+      ws.onopen = () => {
+        ws.send(JSON.stringify({ target: detectionTarget }));
+        console.log("✅ WebSocket opened");
+      };
+
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        console.log("📦 WS Message Received:", JSON.stringify(data));
+
+        if (!data.description) return;
+        if (data.description === lastDescription) return;  // skip duplicates
+        lastDescription = data.description;
+
+        document.getElementById('result').textContent = data.description;
+
+        if (data.audio_url) {
+          fetch(data.audio_url)
+            .then(response => response.blob())
+            .then(blob => {
+              const url = URL.createObjectURL(blob);
+              if (audio.src !== url) {
+                audio.pause();
+                audio.currentTime = 0;
+                audio.src = url;
+              }
+              audio.style.display = 'block';
+              audio.play().then(() => {
+                console.log("🔊 Audio playing...");
+              }).catch(err => {
+                console.warn("❌ Audio play failed:", err.message);
+              });
+            });
+        }
+      };
+
+      ws.onclose = () => {
+        console.warn("❌ WebSocket closed");
+        speak("تم فقد الاتصال بالخادم. يرجى إعادة تحميل الصفحة.");
+      };
+
+      const video = document.getElementById('video');
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      video.srcObject = stream;
+
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+
+      setInterval(() => {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0);
+        canvas.toBlob(blob => {
+          if (ws.readyState === 1) {
+            const reader = new FileReader();
+            reader.onload = () => {
+              ws.send(reader.result);
+            };
+            reader.readAsDataURL(blob);
+          }
+        }, 'image/jpeg', 0.7);
+      }, 500);
+    }
+
+    window.onload = () => {
+      speak("مرحبًا، اختر الهدف المطلوب: 1 شخص، 2 كرسي، 3 كمبيوتر، 4 حقيبة، 5 طاولة، 6 تلفاز، 7 هاتف. أو قل رجوع للعودة إلى الصفحة الرئيسية.", () => {
+        const r = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+        r.lang = 'ar-SA';
+
+        r.onresult = e => {
+          const t = e.results[0][0].transcript.trim().toLowerCase();
+          if (t.includes("شخص") || t.includes("1")) detectionTarget = "person";
+          else if (t.includes("كرسي") || t.includes("2")) detectionTarget = "chair";
+          else if (t.includes("كمبيوتر") || t.includes("3")) detectionTarget = "laptop";
+          else if (t.includes("حقيبة") || t.includes("4")) detectionTarget = "backpack";
+          else if (t.includes("طاولة") || t.includes("5")) detectionTarget = "dining table";
+          else if (t.includes("تلفاز") || t.includes("6")) detectionTarget = "tv";
+          else if (t.includes("هاتف") || t.includes("7")) detectionTarget = "cell phone";
+          else if (t.includes("رجوع") || t.includes("الرئيسية")) {
+            window.location.href = "/";
+            return;
+          }
+
+          startDetection();
+          setInterval(continuousExitListener, 30000);
+        };
+
+        r.onerror = () => console.warn("🎙️ Initial SpeechRecognition error");
+        r.start();
+      });
+    };
+  </script>
+</body>
+</html> -->
+
+
+<!-- final version -->
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8" />
+  <title>مساعد المكفوفين</title>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css" />
+  <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+</head>
+<div class="corner-button" id="corner-top-left" onclick="window.location.href='/'"></div>
+<style>
+  .corner-button {
+    position: fixed;
+    width: 20vw;
+    height: 20vh;
+    z-index: 999;
+    background: transparent;
+  }
+  #corner-top-left {
+    top: 0;
+    left: 0;
+  }
+</style>
+<body>
+  <img id="logo" src="/static/logo.png" alt="شعار بصير">
+  <h1>🔍 مساعد المكفوفين - البحث الصوتي</h1>
+  <p id="heardText">🎧 في انتظار الأمر الصوتي...</p>
+  <pre id="result"></pre>
+  <audio id="audio" controls style="display:none"></audio>
+  <audio id="beep" src="/static/beep.wav" preload="auto"></audio>
+  <video
+    id="video"
+    width="640"
+    height="480"
+    autoplay
+    muted
+    style="display: block; margin: 0 auto; background-color: #000; border: 2px solid #ccc;"
+  ></video>
+
+  <script>
+    let ws;
+    let detectionTarget = "person";
+    const audio = document.getElementById("audio");
+    const beep = document.getElementById("beep");
+    let isListening = false;
+    let userCommandInProgress = false;
+    let lastDescription = "";
+    let detectionCount = 0;
+    let detectionLocked = false;
+    let timeoutHandle = null;
+
+    function speak(text, callback = null) {
+      const formData = new FormData();
+      formData.append("text", text);
+      fetch("/speak", { method: "POST", body: formData })
+        .then(response => response.blob())
+        .then(blob => {
+          const url = URL.createObjectURL(blob);
+          audio.pause();
+          audio.currentTime = 0;
+          audio.src = url;
+          audio.style.display = 'block';
+
+          audio.play().then(() => {
+            console.log("🔊 Audio playing...");
+          }).catch(err => {
+            console.warn("❌ Audio play failed:", err.message);
+          });
+
+          audio.onended = () => {
+            console.log("✅ Audio ended");
+            isListening = false;
+            if (callback) callback();
+          };
+
+          audio.onerror = () => {
+            console.warn("❌ Audio playback error");
+            isListening = false;
+            if (callback) callback();
+          };
+        });
+    }
+
+    function stopDetectionStream() {
+      if (ws && ws.readyState === 1) {
+        ws.close();
+        console.log("🛑 Detection stream stopped.");
+      }
+    }
+
+    function askAfterDetections() {
+      detectionLocked = true;
+      stopDetectionStream();
+
+      speak("هل تريد الاستمرار في البحث عن نفس الهدف، أو اختيار هدف آخر، أو الرجوع إلى الصفحة الرئيسية؟", () => {
+        const r = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+        r.lang = 'ar-SA';
+
+        const cleanup = () => {
+          clearTimeout(timeoutHandle);
+          isListening = false;
+          userCommandInProgress = false;
+          detectionLocked = false;
+        };
+
+        r.onresult = e => {
+          const t = e.results[0][0].transcript.trim().toLowerCase();
+          if (t.includes("رجوع") || t.includes("الرئيسية")) {
+            speak("جاري الرجوع إلى الصفحة الرئيسية", () => {
+              window.location.href = "/";
+            });
+          } else if (t.includes("هدف") || t.includes("بحث")) {
+            window.location.reload();
+          } else if (t.includes("استمرار") || t.includes("تابع")) {
+            detectionCount = 0;
+            cleanup();
+            startDetection();
+          } else {
+            cleanup();
+            startDetection();
+          }
+        };
+
+        r.onerror = r.onend = () => {
+          cleanup();
+        };
+
+        timeoutHandle = setTimeout(() => {
+          console.warn("⌛ Timeout: no response. Going back to homepage.");
+          speak("لم يتم الاستجابة، سيتم الرجوع إلى الصفحة الرئيسية", () => {
+            window.location.href = "/";
+          });
+        }, 15000); // 15 sec timeout
+
+        beep.play();
+        r.start();
+        document.getElementById("heardText").innerText = "🎤 الميكروفون يعمل: اختر الاستمرار أو هدف آخر أو الرجوع.";
+      });
+    }
+
+    async function startDetection() {
+      ws = new WebSocket(`ws://${location.host}/ws/depth-live`);
+
+      ws.onopen = () => {
+        ws.send(JSON.stringify({ target: detectionTarget }));
+        console.log("✅ WebSocket opened");
+      };
+
+      ws.onmessage = (event) => {
+        if (detectionLocked) return;
+
+        const data = JSON.parse(event.data);
+        console.log("📦 WS Message Received:", JSON.stringify(data));
+
+        if (!data || typeof data !== 'object' || !data.description) return;
+        if (data.description === lastDescription) return;
+        if (userCommandInProgress) return;
+
+        lastDescription = data.description;
+        document.getElementById('result').textContent = data.description;
+        detectionCount++;
+
+        const playAndCheck = () => {
+          if (detectionCount >= 3) {
+            askAfterDetections();
+          }
+        };
+
+        if (data.audio_url) {
+          fetch(data.audio_url)
+            .then(response => response.blob())
+            .then(blob => {
+              const url = URL.createObjectURL(blob);
+              if (audio.src !== url) {
+                audio.pause();
+                audio.currentTime = 0;
+                audio.src = url;
+              }
+              audio.style.display = 'block';
+              audio.play().then(() => {
+                console.log("🔊 Audio playing...");
+              }).catch(err => {
+                console.warn("❌ Audio play failed:", err.message);
+              });
+              audio.onended = playAndCheck;
+            });
+        }
+      };
+
+      ws.onclose = () => {
+        console.warn("❌ WebSocket closed");
+      };
+
+      const video = document.getElementById('video');
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      video.srcObject = stream;
+
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+
+      setInterval(() => {
+        if (!detectionLocked && ws.readyState === 1) {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          ctx.drawImage(video, 0, 0);
+          canvas.toBlob(blob => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              ws.send(reader.result);
+            };
+            reader.readAsDataURL(blob);
+          }, 'image/jpeg', 0.7);
+        }
+      }, 500);
+    }
+
+    window.onload = () => {
+      speak("مرحبًا، اختر الهدف المطلوب: 1 شخص، 2 كرسي، 3 كمبيوتر، 4 حقيبة، 5 طاولة، 6 تلفاز. أو قل رجوع للعودة إلى الصفحة الرئيسية.", () => {
+        const r = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+        r.lang = 'ar-SA';
+
+        r.onresult = e => {
+          const t = e.results[0][0].transcript.trim().toLowerCase();
+          if (t.includes("شخص") || t.includes("1")) detectionTarget = "person";
+          else if (t.includes("كرسي") || t.includes("2")) detectionTarget = "chair";
+          else if (t.includes("كمبيوتر") || t.includes("3")) detectionTarget = "laptop";
+          else if (t.includes("حقيبة") || t.includes("4")) detectionTarget = "backpack";
+          else if (t.includes("طاولة") || t.includes("5")) detectionTarget = "dining table";
+          else if (t.includes("تلفاز") || t.includes("6")) detectionTarget = "tv";
+          else if (t.includes("رجوع") || t.includes("الرئيسية")) {
+            window.location.href = "/";
+            return;
+          }
+
+          startDetection();
+        };
+
+        r.onerror = () => console.warn("🎙️ Initial SpeechRecognition error");
+        r.start();
+      });
+    };
+  </script>
+<div class="bg"></div>
+<div class="bg bg2"></div>
+<div class="bg bg3"></div>
+<div class="bg bg4"></div>
+
+</body>
+</html>

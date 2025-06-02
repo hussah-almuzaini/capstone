@@ -1,0 +1,154 @@
+<!-- === index.html UPDATED WITH AUTO-VOICE AND SKIP BUTTON === -->
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8" />
+  <title>المساعد الصوتي</title>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css" />
+  <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+  <style>
+    .corner-button {
+      position: fixed;
+      width: 20vw;
+      height: 20vh;
+      z-index: 999;
+      background: transparent;
+    }
+    #corner-top-left    { top: 0; left: 0; }
+    #corner-top-right   { top: 0; right: 0; }
+    #corner-bottom-left { bottom: 0; left: 0; }
+    #corner-bottom-right{ bottom: 0; right: 0; }
+  </style>
+</head>
+<body>
+  <img id="logo" src="/static/logo.png" alt="شعار بصير">
+  <h1 id="pageTitle">مرحبًا بك في الصفحة الرئيسية</h1>
+  <button id="startButton">🎤 أفتح المايك </button>
+  <audio id="audioPlayer" style="display: none;" controls></audio>
+
+  <!-- Corner Hotzones -->
+  <div class="corner-button" id="corner-top-left" onclick="window.location.href='/static/upload.html'"></div>
+  <div class="corner-button" id="corner-top-right" onclick="window.location.href='/static/stream.html'"></div>
+  <div class="corner-button" id="corner-bottom-left" onclick="window.location.href='/static/search.html'"></div>
+  <div class="corner-button" id="corner-bottom-right" onclick="fetch('/news', {method: 'POST'}).then(res => res.json()).then(data => speak(data.news || '❌ لم يتم الحصول على الأخبار'))"></div>
+
+  <script>
+    let alreadySpoken = false;
+    let isSpeaking = false;
+    const socket = new WebSocket("ws://localhost:8000/ws");
+    const player = document.getElementById("audioPlayer");
+
+    function speak(text, callback = null) {
+      isSpeaking = true;
+      const formData = new FormData();
+      formData.append("text", text);
+
+      fetch("/speak", {
+        method: "POST",
+        body: formData
+      })
+      .then(response => response.blob())
+      .then(blob => {
+        const url = URL.createObjectURL(blob);
+        player.src = url;
+        player.play();
+        player.onended = () => {
+          isSpeaking = false;
+          if (callback) callback();
+        };
+      })
+      .catch(err => {
+        console.error("❌ خطأ في تشغيل الصوت:", err);
+        isSpeaking = false;
+        if (callback) callback();
+      });
+    }
+
+    function handleVoiceCommand(text) {
+      const cleaned = text.toLowerCase().replace(/ال/g, "").trim();
+
+      if (cleaned.includes("بصير")) {
+        speak("أهلاً");
+        return;
+      }
+
+      if (cleaned.includes("بحث")) {
+        window.location.href = "/static/search.html";
+      } else if (cleaned.includes("بث")) {
+        window.location.href = "/static/stream.html";
+      } else if (cleaned.includes("رفع")) {
+        window.location.href = "/static/upload.html";
+      } else if (cleaned.includes("رئيسية")) {
+        window.location.href = "/";
+      } else if (cleaned.includes("خبر")) {
+        fetch("/news", { method: "POST" })
+          .then(res => res.json())
+          .then(data => {
+            const newsText = data.news || "❌ لم يتم الحصول على الأخبار";
+            speak(newsText);
+          })
+          .catch(err => {
+            console.error("❌ خطأ في جلب الأخبار:", err);
+            speak("حدث خطأ أثناء جلب الأخبار.");
+          });
+      }
+
+      socket.send(text);
+    }
+
+    function startListening() {
+      const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+      recognition.lang = 'ar-SA';
+      recognition.start();
+
+      recognition.onresult = (event) => {
+        const text = event.results[0][0].transcript.trim();
+        handleVoiceCommand(text);
+      };
+
+      recognition.onerror = e => console.warn("❌", e.error);
+      recognition.onend = () => recognition.start();
+    }
+
+    socket.onmessage = function(event) {
+      const msg = event.data;
+      if (msg.startsWith("redirect:")) {
+        const targetURL = msg.split("redirect:")[1];
+        window.location.href = targetURL;
+        return;
+      }
+      if (msg.startsWith("goto:")) {
+        const rawPage = msg.split(":")[1];
+        handleVoiceCommand(rawPage);
+      } else {
+        document.getElementById("pageTitle").innerText = msg;
+      }
+    };
+
+    document.getElementById("startButton").onclick = () => {
+      if (isSpeaking) {
+        player.pause();
+        player.currentTime = 0;
+        isSpeaking = false;
+      }
+      startListening();
+      document.getElementById("startButton").style.display = "none";
+    };
+
+    window.onload = () => {
+      alreadySpoken = true;
+      speak("مرحباً بك في الصفحة الرئيسية لدخول صفحة الرفع لتحليل المقاطع و الصور الرجاء قول صفحة الرفع. لدخول صفحة البث لتحليل ما يجري حواليك الرجاء قول صفحة البث. لدخول صفحة بحث ل اشياء معينة الرجاء قول صفحة البحث. لسماع موجز اخر الاخبار في السعودية الرجاء قول خبر للتحكم اليدوي الرجاء ضغط زاوية فوق يسار لدخول صفحة الرفع، زاوية فوق يمين لدخول صفحة البث، زاوية تحت يسار لدخول صفحة البحث، تحت يمين لسماع اخر الاخبار", () => {
+        startListening();
+        document.getElementById("startButton").style.display = "none";
+      });
+    };
+  </script>
+
+<div class="bg"></div>
+<div class="bg bg2"></div>
+<div class="bg bg3"></div>
+<div class="bg bg4"></div>
+<div class="gif-background"></div>
+</body>
+</html>

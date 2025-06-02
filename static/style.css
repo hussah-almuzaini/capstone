@@ -1,0 +1,241 @@
+:root {
+  --main-bg: #f4f7f9;
+  --main-text: #24313e;
+  --accent: #4ac0c5;
+  --accent-dark: #217f85;
+  --light-box: #ffffff;
+  --border-color: #d0d7dd;
+  --button-bg: #24a2b1;         /* زر أغمق */
+  --button-bg-hover: #1c8895;
+  --wave-color: #2caab0;        /* لون الموجة السفلي */
+}
+
+body {
+  background-color: var(--main-bg);
+  color: var(--main-text);
+  font-family: 'Tajawal', sans-serif;
+  text-align: center;
+  direction: rtl;
+  padding: 20px;
+  position: relative;
+  overflow-x: hidden;
+}
+
+#logo {
+  width: 180px;
+  margin: 10px auto 20px;
+  display: block;
+}
+
+h1, h2, h3 {
+  color: var(--main-text);
+  font-weight: 700;
+  margin-top: 10px;
+}
+
+button {
+  background-color: var(--button-bg);
+  color: #000;
+  border: none;
+  padding: 12px 28px;
+  font-size: 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  margin-top: 40px;
+  font-family: 'Tajawal', sans-serif;
+  opacity: 1;
+}
+
+button:hover {
+  background-color: var(--button-bg-hover);
+}
+
+#uploadBox {
+  margin: 50px auto;
+  padding: 30px;
+  width: 80%;
+  max-width: 500px;
+  background-color: var(--light-box);
+  border: 2px solid var(--border-color);
+  border-radius: 16px;
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.05);
+}
+
+#uploadBox h2 {
+  font-size: 22px;
+  margin-bottom: 15px;
+  color: var(--main-text);
+}
+
+input[type="file"] {
+  margin: 12px 0;
+  font-size: 14px;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background-color: #fff;
+  color: #000;
+}
+
+#uploadForm {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+#result {
+  margin-top: 30px;
+  font-size: 18px;
+  text-align: center;
+  direction: rtl;
+  color: var(--main-text);
+  padding-top: 10px;
+  border-top: 1px dashed var(--accent);
+}
+
+#result ul {
+  padding: 0;
+  list-style-type: none;
+}
+
+#result li {
+  padding: 6px 0;
+  font-size: 16px;
+  color: #333;
+}
+
+#videoContainer {
+  margin: 40px auto;
+  padding: 20px;
+  width: fit-content;
+  background-color: var(--light-box);
+  border: 2px solid var(--border-color);
+  border-radius: 16px;
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.06);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+video {
+  width: 90vw;
+  max-width: 1000px;
+  height: 360px;
+  border-radius: 16px;
+  border: 1px solid #ccc;
+  object-fit: cover;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.07);
+}
+
+#captions {
+  background-color: var(--light-box);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 20px;
+  margin: 30px auto;
+  max-width: 600px;
+  color: var(--main-text);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
+}
+
+#captionAR {
+  font-size: 20px;
+  color: var(--accent-dark);
+}
+
+audio {
+  margin-top: 15px;
+}
+
+.bg,
+.bg2,
+.bg3,
+.bg4 {
+  position: fixed;
+  top: 0;
+  left: -50%;
+  right: -50%;
+  bottom: 0;
+  z-index: -1;
+  background-size: cover;
+  background-repeat: no-repeat;
+  animation: slide 10s ease-in-out infinite alternate;
+  transform: skewX(-20deg); /* ← نضمن الميل */
+}
+
+.bg {
+  background-image: linear-gradient(-60deg, #4ac0c5 60%, #217f85 40%);
+  opacity: 0.25;
+  animation-duration: 11s;
+}
+
+.bg2 {
+  background-image: linear-gradient(-60deg, #5fd2d7 60%, #1c6c7a 40%);
+  opacity: 0.2;
+  animation-duration: 8s;
+  animation-direction: alternate-reverse;
+}
+
+.bg3 {
+  background-image: linear-gradient(-60deg, #7ce6eb 60%, #388c96 40%);
+  opacity: 0.18;
+  animation-duration: 9s;
+}
+
+.bg4 {
+  background-image: linear-gradient(-60deg, #a2f0f2 60%, #2b7d8a 40%);
+  opacity: 0.15;
+  animation-duration: 20s;
+  animation-direction: alternate;
+}
+
+@keyframes slide {
+  0% {
+    transform: translateX(-25%) ; }
+  100% {
+    transform: translateX(25%) ;
+  }
+}
+
+
+@keyframes logoVibe {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(2deg); }
+  50% { transform: rotate(-2deg); }
+  75% { transform: rotate(1deg); }
+}
+
+#logo:hover {
+  animation: logoVibe 0.5s ease-in-out;
+  transition: transform 0.2s;
+}
+
+
+.gif-background {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 300px; /* أو أقل حسب اللي يناسبك */
+  background-image: url("/static/baseer2.gif"); /* غيّريه لاسم ملفك */
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center bottom;
+  opacity: 0.3;
+  pointer-events: none;
+  z-index: 0;
+}
+
+
+.corner-button {
+  position: fixed;
+  width: 20vw;
+  height: 20vh;
+  z-index: 999;
+}
+#corner-top-left { top: 0; left: 0; }
+#corner-top-right { top: 0; right: 0; }
+#corner-bottom-left { bottom: 0; left: 0; }
+#corner-bottom-right { bottom: 0; right: 0; }

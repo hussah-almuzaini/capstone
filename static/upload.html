@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <title>صفحة رفع الملف</title>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css" />
+  <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+</head>
+<div class="corner-button" id="corner-top-left" onclick="window.location.href='/'"></div>
+<style>
+  .corner-button {
+    position: fixed;
+    width: 20vw;
+    height: 20vh;
+    z-index: 999;
+    background: transparent;
+  }
+  #corner-top-left {
+    top: 0;
+    left: 0;
+  }
+</style>
+<body>
+  <img id="logo" src="/static/logo.png" alt="شعار بصير">
+  <h1>مرحباً بك في صفحة رفع الملف</h1>
+  <p id="heardText">🎧 بانتظار الصوت...</p>
+
+  <div id="result" style="border-top: none;"></div>
+
+  <!-- مشغل صوت مخفي -->
+  <audio id="audioPlayer" style="display: none;" controls></audio>
+
+  <script>
+    const resultBox = document.getElementById("result");
+    const audioPlayer = document.getElementById("audioPlayer");
+
+    let isSpeaking = false;
+
+    // 🎤 تفعيل التعرف على الكلام
+    const r = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+    r.lang = 'ar-SA';
+
+    // 🔊 وظيفة النطق
+    const speak = (text) => {
+      const formData = new FormData();
+      formData.append("text", text);
+      fetch("/speak", { method: "POST", body: formData })
+        .then(res => res.blob())
+        .then(blob => {
+          const url = URL.createObjectURL(blob);
+          audioPlayer.src = url;
+
+          isSpeaking = true;
+          audioPlayer.play();
+
+          audioPlayer.onended = () => {
+            console.log("✅ انتهى الصوت، نعيد الاستماع");
+            isSpeaking = false;
+            document.getElementById("heardText").innerText = "🎧 بانتظار الصوت...";
+            listen(); // إعادة الاستماع بعد انتهاء النطق
+          };
+        });
+    };
+
+    // 🧠 وظيفة رفع وتحليل الملف
+    const uploadAndAnalyze = async () => {
+      document.getElementById("heardText").innerText = "⏳ جاري التحليل...";
+      const t0 = performance.now();
+
+      try {
+        console.log("🚀 بدء التحليل");
+
+        const analyzeRes = await fetch("/analyze_from_static", {
+          method: "POST"
+        });
+
+        const analyzeData = await analyzeRes.json();
+        console.log("📸 التحليل تم:", Math.round(performance.now() - t0), "ms");
+
+        if (analyzeData.error) {
+          resultBox.innerHTML = "❌ خطأ: " + analyzeData.error;
+          return;
+        }
+
+        const captions = analyzeData.captions;
+        const fullText = captions.join("\n");
+
+        const t1 = performance.now();
+        console.log("🔁 بدء الترجمة");
+
+        const translationRes = await fetch("/translate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: fullText })
+        });
+
+        const translationData = await translationRes.json();
+        console.log("📝 الترجمة تمت:", Math.round(performance.now() - t1), "ms");
+
+        const translated = translationData.translated || "❌ لم يتم الترجمة";
+
+        const t2 = performance.now();
+        console.log("🔊 بدء النطق");
+        speak(translated);
+        console.log("✅ كل العملية تمت خلال:", Math.round(performance.now() - t0), "ms");
+
+      } catch (err) {
+        resultBox.innerHTML = "⚠️ حدث خطأ أثناء الاتصال بالخادم.";
+        console.error("⚠️ Server error:", err);
+      }
+    };
+
+    // 🎧 وظيفة الاستماع للأوامر
+    const listen = () => {
+      if (isSpeaking) {
+        console.log("🔇 الصوت يشتغل، ننتظر...");
+        return;
+      }
+
+      try {
+        r.onstart = () => console.log("🎤 بدأ الاستماع...");
+        r.onend = () => setTimeout(() => {
+          if (!isSpeaking) listen();
+        }, 800);
+
+        r.onerror = () => setTimeout(() => {
+          if (!isSpeaking) listen();
+        }, 800);
+
+        r.onresult = e => {
+          const t = e.results[0][0].transcript.trim();
+          const cleaned = t.toLowerCase().replace(/ال/g, "").trim();
+          console.log("🎧 سمعت:", t, "| بعد التنظيف:", cleaned);
+
+          if (cleaned.includes("بحث")) {
+            window.location.href = "/static/search.html";
+          } else if (cleaned.includes("بث")) {
+            window.location.href = "/static/stream.html";
+          } else if (cleaned.includes("رفع") || cleaned.includes("افتح")) {
+            uploadAndAnalyze();
+          } else if (cleaned.includes("رئيسيه")) {
+            window.location.href = "/";
+          }
+          else if (cleaned.includes("خبر")) {
+  fetch("/news", { method: "POST" })
+    .then(res => res.json())
+    .then(data => {
+      const newsText = data.news || "❌ لم يتم الحصول على الأخبار";
+      speak(newsText);
+    })
+    .catch(err => {
+      console.error("❌ خطأ في جلب الأخبار:", err);
+      speak("حدث خطأ أثناء جلب الأخبار.");
+    });
+}
+
+
+        };
+
+        r.start();
+      } catch (err) {
+        console.log("❌ خطأ أثناء بدء الاستماع:", err);
+      }
+    };
+
+    // ⏱️ تشغيل الاستماع عند فتح الصفحة
+    listen();
+
+    window.onload = () => {
+  speak("إذا كنت تريد رفـع المقطع، الرجاء قول: افتح أو حمل الملف");
+  listen();
+};
+    
+
+    // 🔄 تحقق دوري: إعادة تفعيل الاستماع إذا توقف فجأة
+    setInterval(() => {
+      if (!isSpeaking) {
+        console.log("🔄 تحقق دوري: إعادة تفعيل الاستماع إذا توقف");
+        listen();
+      }
+    }, 10000);
+  </script>
+ <div class="bg"></div>
+ <div class="bg bg2"></div>
+ <div class="bg bg3"></div>
+ <div class="bg bg4"></div>
+
+</body>
+</html>
+
+
+
+
