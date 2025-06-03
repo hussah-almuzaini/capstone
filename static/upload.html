@@ -8,6 +8,8 @@
   <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
 </head>
 <div class="corner-button" id="corner-top-left" onclick="window.location.href='/'"></div>
+<audio id="upload" src="upload.wav" style="display:none"></audio>
+<audio id="beep" src="beep.wav" style="display:none"></audio>
 <style>
   .corner-button {
     position: fixed;
@@ -42,7 +44,7 @@
     r.lang = 'ar-SA';
 
     // 🔊 وظيفة النطق
-    const speak = (text) => {
+    const speak = (text, callback = null) => {
       const formData = new FormData();
       formData.append("text", text);
       fetch("/speak", { method: "POST", body: formData })
@@ -58,7 +60,8 @@
             console.log("✅ انتهى الصوت، نعيد الاستماع");
             isSpeaking = false;
             document.getElementById("heardText").innerText = "🎧 بانتظار الصوت...";
-            listen(); // إعادة الاستماع بعد انتهاء النطق
+            if (callback) callback();
+            else listen(); // إعادة الاستماع بعد انتهاء النطق
           };
         });
     };
@@ -102,7 +105,15 @@
 
         const t2 = performance.now();
         console.log("🔊 بدء النطق");
-        speak(translated);
+        // speak(translated);
+        speak(translated, () => {
+          const beep = document.getElementById("beep");
+          beep.currentTime = 0;
+          beep.play();
+          beep.onended = () => {
+            listen();
+          };
+        });
         console.log("✅ كل العملية تمت خلال:", Math.round(performance.now() - t0), "ms");
 
       } catch (err) {
@@ -137,23 +148,23 @@
             window.location.href = "/static/search.html";
           } else if (cleaned.includes("بث")) {
             window.location.href = "/static/stream.html";
-          } else if (cleaned.includes("رفع") || cleaned.includes("افتح")) {
+          } else if (cleaned.includes("رفع") || cleaned.includes("تحليل")) {
             uploadAndAnalyze();
-          } else if (cleaned.includes("رئيسيه")) {
+          } else if (cleaned.includes("رئيسيه")||cleaned.includes("رجوع")) {
             window.location.href = "/";
           }
           else if (cleaned.includes("خبر")) {
-  fetch("/news", { method: "POST" })
-    .then(res => res.json())
-    .then(data => {
-      const newsText = data.news || "❌ لم يتم الحصول على الأخبار";
-      speak(newsText);
-    })
-    .catch(err => {
-      console.error("❌ خطأ في جلب الأخبار:", err);
-      speak("حدث خطأ أثناء جلب الأخبار.");
-    });
-}
+            fetch("/news", { method: "POST" })
+              .then(res => res.json())
+              .then(data => {
+                const newsText = data.news || "❌ لم يتم الحصول على الأخبار";
+                speak(newsText);
+              })
+              .catch(err => {
+                console.error("❌ خطأ في جلب الأخبار:", err);
+                speak("حدث خطأ أثناء جلب الأخبار.");
+              });
+          }
 
 
         };
@@ -167,10 +178,18 @@
     // ⏱️ تشغيل الاستماع عند فتح الصفحة
     listen();
 
-    window.onload = () => {
-  speak("إذا كنت تريد رفـع المقطع، الرجاء قول: افتح أو حمل الملف");
-  listen();
-};
+  //   window.onload = () => {
+  //   speak("إذا كنت تريد رفـع المقطع، الرجاء قول: تحليل أو رفع ");
+  //   listen();
+  // };
+  window.onload = () => {
+    const upload = document.getElementById("upload");
+    upload.currentTime = 0;
+    upload.play();
+    upload.onended = () => {
+      listen();
+    };
+  };
     
 
     // 🔄 تحقق دوري: إعادة تفعيل الاستماع إذا توقف فجأة

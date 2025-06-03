@@ -1,0 +1,102 @@
+<!-- <!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8" />
+  <title>آخر الأخبار</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <h1>آخر الأخبار في السعودية</h1>
+  <div id="newsText">جاري جلب الأخبار...</div>
+  <audio id="audioPlayer" controls style="display:none"></audio>
+  <button onclick="window.location.href='/'">العودة للرئيسية</button>
+  <script>
+    function speak(text) {
+      const formData = new FormData();
+      formData.append("text", text);
+      fetch("/speak", { method: "POST", body: formData })
+        .then(res => res.blob())
+        .then(blob => {
+          const url = URL.createObjectURL(blob);
+          const player = document.getElementById("audioPlayer");
+          player.src = url;
+          player.style.display = "block";
+          player.play();
+        });
+    }
+
+    fetch("/news", { method: "POST" })
+      .then(res => res.json())
+      .then(data => {
+        const news = data.news || "❌ لم يتم الحصول على الأخبار";
+        document.getElementById("newsText").innerText = news;
+        speak(news);
+      })
+      .catch(() => {
+        document.getElementById("newsText").innerText = "❌ حدث خطأ أثناء جلب الأخبار";
+      });
+  </script>
+</body>
+</html> -->
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8" />
+  <title>آخر الأخبار</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <h1>آخر الأخبار في السعودية</h1>
+  <!-- <div id="newsText">جاري جلب الأخبار...</div> -->
+  <audio id="audioPlayer" style="display:none" controls></audio>
+  <script>
+    function speak(text, callback = null) {
+      const formData = new FormData();
+      formData.append("text", text);
+      fetch("/speak", { method: "POST", body: formData })
+        .then(res => res.blob())
+        .then(blob => {
+          const url = URL.createObjectURL(blob);
+          const player = document.getElementById("audioPlayer");
+          player.src = url;
+          player.style.display = "block";
+          player.play();
+          player.onended = () => {
+            if (callback) callback();
+          };
+        });
+    }
+
+    function listenForHome() {
+      const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+      recognition.lang = 'ar-SA';
+      recognition.start();
+      recognition.onresult = (event) => {
+        const text = event.results[0][0].transcript.trim();
+        const cleaned = text.toLowerCase().replace(/ال/g, "");
+        if (cleaned.includes("رئيسية") || cleaned.includes("رجوع")) {
+          window.location.href = "/";
+        } else {
+          // Listen again if not a home command
+          listenForHome();
+        }
+      };
+      recognition.onerror = () => listenForHome();
+      recognition.onend = () => listenForHome();
+    }
+
+    fetch("/news", { method: "POST" })
+      .then(res => res.json())
+      .then(data => {
+        const news = data.news || "❌ لم يتم الحصول على الأخبار";
+        document.getElementById("newsText").innerText = news;
+        speak(news, () => {
+          speak("يمكنك الرجوع للصفحة الرئيسية بقول رجوع أو رئيسية.", listenForHome);
+        });
+      })
+      .catch(() => {
+        document.getElementById("newsText").innerText = "❌ حدث خطأ أثناء جلب الأخبار";
+      });
+  </script>
+</body>
+</html>
