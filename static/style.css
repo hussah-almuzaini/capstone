@@ -130,19 +130,26 @@ video {
 }
 
 #captions {
-  background-color: var(--light-box);
-  border: 1px solid var(--border-color);
-  border-radius: 14px;
-  padding: 20px;
-  margin: 30px auto;
-  max-width: 600px;
-  color: var(--main-text);
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+
 }
 
 #captionAR {
-  font-size: 20px;
-  color: var(--accent-dark);
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
 }
 
 audio {
